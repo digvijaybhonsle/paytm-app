@@ -1,0 +1,1 @@
+module.export = JWT_secret;
