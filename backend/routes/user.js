@@ -107,22 +107,48 @@ router.put('/', authMiddleware, async (req, res) => {
     }
 
     try {
-        // Update user details in the database using the userId from the token
-        const updatedUser = await User.updateOne({ _id: req.userId }, req.body);
-
-        // Check if user was found and updated
-        if (updatedUser.modifiedCount > 0) {
-            return res.status(200).json({
-                message: "User updated successfully"
-            });
-        } else {
-            return res.status(404).json({
-                message: "User not found"
-            });
-        }
+        await User.updateOne({ _id: req.userId }, req.body);
+        res.status(200).json({
+            message: "User updated successfully"
+        });
     } catch (err) {
-        return res.status(500).json({
+        res.status(500).json({
             message: "Internal server error",
+            error: err.message
+        });
+    }
+});
+
+// Bulk get users endpoint
+router.get("/bulk", async (req, res) => {
+    const filter = req.query.filter || "";
+
+    try {
+        const users = await User.find({
+            $or: [{
+                firstName: {
+                    "$regex": filter,
+                    "$options": "i"  // Case-insensitive search
+                }
+            }, {
+                lastName: {
+                    "$regex": filter,
+                    "$options": "i"  // Case-insensitive search
+                }
+            }]
+        });
+
+        res.json({
+            users: users.map(user => ({
+                username: user.username,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                _id: user._id
+            }))
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: "Error fetching users",
             error: err.message
         });
     }
