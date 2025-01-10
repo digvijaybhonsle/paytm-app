@@ -1,1 +1,3 @@
-module.export = JWT_secret;
+module.exports = {
+	JWT_SECRET: "CR7ROCKS"
+}

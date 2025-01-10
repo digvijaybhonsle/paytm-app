@@ -1,12 +1,32 @@
-const express = require("express");
-const cors = require("cors");
+// Import required modules
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const userRouter = require('./routes/user'); 
 
+// Initialize Express app
+const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-const mainRouter = require("./routes/index");
+// MongoDB connection
+const dbURI = 'mongodb://localhost:27017/payTM'; 
+mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB connected...'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
-const app = exprss();
+// Routes
+app.use('/api/user', userRouter);
 
-app.use("/api/v1", mainRouter);
-app.listen(3000);
+// Default route for checking server
+app.get('/', (req, res) => {
+    res.send('Hello World!');
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
