@@ -7,12 +7,12 @@ const { authMiddleware } = require('../middleware');
 
 const router = express.Router();
 
-// Schema for signup body validation
 const signupBody = zod.object({
     username: zod.string().email(),
     firstName: zod.string(),
     lastName: zod.string(),
-    password: zod.string()
+    password: zod.string().min(6, 'Password must be at least 6 characters'),
+    profilePic: zod.string().optional(),  // Optional profile picture
 });
 
 // Signup endpoint
@@ -21,42 +21,59 @@ router.post('/signup', async (req, res) => {
     if (!success) {
         return res.status(400).json({
             message: "Invalid input data",
-            errors: error.errors
+            errors: error.errors,
         });
     }
 
     try {
+        // Check if the email (username) already exists
         const existingUser = await User.findOne({ username: req.body.username });
         if (existingUser) {
             return res.status(409).json({
-                message: "Email already taken"
+                message: "Email already taken",
             });
         }
 
-        const user = await User.create(req.body);
-        //create new account
+        // Hash the password before storing it
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+
+        // Create the user with all the fields, including profilePic if provided
+        const user = await User.create({
+            username: req.body.username,
+            firstName: req.body.firstName,
+            lastName: req.body.lastName,
+            password: hashedPassword,
+            profilePic: req.body.profilePic || null, 
+        });
+
         await Account.create({
             userId: user._id,
-            balance: 1 + Math.random() * 10000
-        })
+            balance: 1 + Math.random() * 10000,  
+        });
+
+        // Generate a JWT token for the user
         const token = jwt.sign({ userId: user._id }, JWT_SECRET);
 
         res.status(201).json({
             message: "User created successfully",
-            token
+            token,
         });
     } catch (err) {
         res.status(500).json({
             message: "Internal server error",
-            error: err.message
+            error: err.message,
         });
     }
 });
 
+module.exports = router;
+
+
 // Schema for signin body validation
 const signinBody = zod.object({
     username: zod.string().email(),
-    password: zod.string()
+    password: zod.string(),
 });
 
 // Signin endpoint
@@ -65,31 +82,31 @@ router.post('/signin', async (req, res) => {
     if (!success) {
         return res.status(400).json({
             message: "Invalid input data",
-            errors: error.errors
+            errors: error.errors,
         });
     }
 
     try {
         const user = await User.findOne({
             username: req.body.username,
-            password: req.body.password
+            password: req.body.password, 
         });
 
         if (user) {
             const token = jwt.sign({ userId: user._id }, JWT_SECRET);
             return res.status(200).json({
                 message: "Signin successful",
-                token
+                token,
             });
         }
 
         res.status(401).json({
-            message: "Invalid username or password"
+            message: "Invalid username or password",
         });
     } catch (err) {
         res.status(500).json({
             message: "Internal server error",
-            error: err.message
+            error: err.message,
         });
     }
 });
@@ -99,6 +116,7 @@ const updateBody = zod.object({
     password: zod.string().optional(),
     firstName: zod.string().optional(),
     lastName: zod.string().optional(),
+    profilePic: zod.string().optional(),
 });
 
 // Update user endpoint
@@ -107,19 +125,19 @@ router.put('/', authMiddleware, async (req, res) => {
     if (!success) {
         return res.status(400).json({
             message: "Invalid input data",
-            errors: error.errors
+            errors: error.errors,
         });
     }
 
     try {
         await User.updateOne({ _id: req.userId }, req.body);
         res.status(200).json({
-            message: "User updated successfully"
+            message: "User updated successfully",
         });
     } catch (err) {
         res.status(500).json({
             message: "Internal server error",
-            error: err.message
+            error: err.message,
         });
     }
 });
@@ -133,12 +151,12 @@ router.get("/bulk", async (req, res) => {
             $or: [{
                 firstName: {
                     "$regex": filter,
-                    "$options": "i"  // Case-insensitive search
+                    "$options": "i" // Case-insensitive search
                 }
             }, {
                 lastName: {
                     "$regex": filter,
-                    "$options": "i"  // Case-insensitive search
+                    "$options": "i" // Case-insensitive search
                 }
             }]
         });
@@ -148,13 +166,13 @@ router.get("/bulk", async (req, res) => {
                 username: user.username,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                _id: user._id
+                _id: user._id,
             }))
         });
     } catch (err) {
         res.status(500).json({
             message: "Error fetching users",
-            error: err.message
+            error: err.message,
         });
     }
 });
